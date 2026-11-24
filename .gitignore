@@ -2,3 +2,7 @@ node_modules
 dist
 preview-shots/
 hardening/
+arabic-fix-report.md
+engine-switch-report.md
+hardening-report.md
+humanizeai-dist.zip
