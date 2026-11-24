@@ -135,9 +135,9 @@ export async function humanizeText(
   level: Level,
   arabic: boolean,
 ): Promise<HumanizeResult> {
-  const systemPrompt = buildSystemPrompt(tone, level, arabic)
-  const first = await callOpenAI(apiKey, systemPrompt, input)
   const inWords = countWords(input)
+  const systemPrompt = buildSystemPrompt(tone, level, arabic, inWords)
+  const first = await callOpenAI(apiKey, systemPrompt, input)
   const threshold = arabic ? 80 : 60
   let result: HumanizeResult
   if (countWords(first) * 100 >= inWords * threshold) {

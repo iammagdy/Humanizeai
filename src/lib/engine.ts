@@ -52,9 +52,21 @@ export function isArabic(text: string): boolean {
   return /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/.test(text)
 }
 
-/** Full system instruction: v6 prompt + one tone line + one level line (+ Arabic line). */
-export function buildSystemPrompt(tone: Tone, level: Level, arabic: boolean): string {
+/**
+ * v6.17 target-length line (English only). Tested on gpt-6-luna in
+ * rounds v6.16/v6.16b: T1 pooled 80.9% -> 91.8% (p=0.0021), markers 0,
+ * meaning kept; T2 flat, no harm. Arabic is excluded — its length is
+ * already near the vendor's (88.9% vs 92.8%) and the line was never
+ * tested on Arabic. Appended LAST, exactly as the test runner did.
+ */
+export function lengthLine(wordCount: number): string {
+  return `Aim for about the same number of words as the input — about ${wordCount} words.`
+}
+
+/** Full system instruction: v6 prompt + one tone line + one level line (+ Arabic line) (+ length line for English). */
+export function buildSystemPrompt(tone: Tone, level: Level, arabic: boolean, wordCount?: number): string {
   const parts = [V6_PROMPT, TONE_LINES[tone], LEVEL_LINES[level]]
   if (arabic) parts.push(ARABIC_LINE)
+  else if (wordCount !== undefined) parts.push(lengthLine(wordCount))
   return parts.join('\n\n')
 }
