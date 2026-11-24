@@ -71,9 +71,11 @@ export function countWords(text: string): number {
 
 /**
  * Humanize one text. Fidelity guard: v6 sometimes compresses hard
- * (one test lost 48% of words). If the output has fewer than 60% of the
- * input's words, regenerate once with the same prompt and keep the longer
- * of the two outputs.
+ * (one test lost 48% of words; the live comparison showed Arabic
+ * 36 -> 24 words). If the output has fewer than 60% of the input's
+ * words, regenerate once with the same prompt and keep the longer
+ * of the two outputs. Arabic compresses harder, so for Arabic text
+ * the bar is 80% instead of 60%.
  */
 export async function humanizeText(
   apiKey: string,
@@ -85,8 +87,9 @@ export async function humanizeText(
   const systemPrompt = buildSystemPrompt(tone, level, arabic)
   const first = await callGemini(apiKey, systemPrompt, input)
   const inWords = countWords(input)
+  const threshold = arabic ? 80 : 60
   let result: HumanizeResult
-  if (countWords(first) * 100 >= inWords * 60) {
+  if (countWords(first) * 100 >= inWords * threshold) {
     result = { text: first, regenerated: false }
   } else {
     const second = await callGemini(apiKey, systemPrompt, input)

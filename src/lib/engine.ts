@@ -24,7 +24,7 @@ Rules:
 5. Keep the meaning, the facts, and the numbers. Do not add new claims. Keep contractions and casual phrasing where they fit; do not formalize chatty text.
 6. Be concrete. Name the people, numbers, places, and exact actions that are already in the text. Turn vague claims into specific ones using only details from the text — never invent new facts, numbers, or names. If the text has no specifics, keep the sentences short and plain instead of dressing them up.
 7. Repeat simple words. Use lots of small connecting words (and, but, so, then, before, after, when). Repeat the same plain nouns and verbs instead of finding a new synonym each time. Humans repeat themselves; do not vary every word.
-8. For Arabic text, apply the same rules in Arabic: short everyday words, every sentence opening with a plain subject, concrete details, repeated simple words.`
+8. For Arabic text, apply the same rules in Arabic: short everyday words, every sentence opening with a plain subject, concrete details, repeated simple words. Keep ALL Arabic punctuation from the original: every comma (،) and every period (.) must appear in the output — never drop a comma. Keep the output about the same length as the original: preserve every clause and every detail, do not shorten or compress the text.`
 
 const TONE_LINES: Record<Tone, string> = {
   standard: 'Tone: Standard — plain, neutral wording.',
@@ -45,7 +45,7 @@ const LEVEL_LINES: Record<Level, string> = {
  * Arabic handling — the differentiator. The vendor drops Arabic punctuation
  * entirely; we keep it. MSA, formal, correct — never dialect.
  */
-const ARABIC_LINE = `The text is Arabic. Write in Modern Standard Arabic (MSA) — clear and formal, but still plain and easy to read, not ornate. Never use dialect or colloquial words (no عشان، كده، حتكون، بتساعد، دلوقتي). Keep ALL Arabic punctuation correct and complete: every sentence must end with its proper mark (، . ؟ !) — never drop punctuation. Keep correct gender agreement. Never open a sentence with a stock transition: no علاوة على ذلك، بالإضافة إلى ذلك، وفي الختام، وأخيرًا، لذلك، وبالتالي، ونتيجة لذلك.`
+const ARABIC_LINE = `The text is Arabic. Write in Modern Standard Arabic (MSA) — clear and formal, but still plain and easy to read, not ornate. Never use dialect or colloquial words (no عشان، كده، حتكون، بتساعد، دلوقتي). Keep ALL Arabic punctuation from the original, exactly: every comma (،) must stay — if the original has 3 commas, the output must have 3 commas — and every sentence must end with its proper mark (. ؟ !). Never drop punctuation. Keep the output about the same length as the original: preserve every clause and every detail, do not shorten or compress. Keep correct gender agreement. Never open a sentence with a stock transition: no علاوة على ذلك، بالإضافة إلى ذلك، وفي الختام، وأخيرًا، لذلك، وبالتالي، ونتيجة لذلك.`
 
 /** True when the text contains Arabic script. */
 export function isArabic(text: string): boolean {
