@@ -38,7 +38,7 @@ const LEVEL_LINES: Record<Level, string> = {
   quality:
     'Level: Quality — stay as faithful as possible to the original wording and structure while still applying the rules above.',
   balanced: 'Level: Balanced — apply the rules above as written.',
-  max: 'Level: Max — reword as thoroughly as possible; change every sentence’s shape and vocabulary while keeping the facts.',
+  max: 'Level: Max — reword more wordily and with more variation; change sentence shapes and vocabulary while keeping the facts.',
 }
 
 /**
@@ -63,10 +63,27 @@ export function lengthLine(wordCount: number): string {
   return `Aim for about the same number of words as the input — about ${wordCount} words.`
 }
 
-/** Full system instruction: v6 prompt + one tone line + one level line (+ Arabic line) (+ length line for English). */
+/**
+ * v6.24 D2 merge directive (English only). Tested on gpt-6-luna in
+ * round v6.23: merged a pair in 24/25 invocations (vs 0/25 for the
+ * v6.22 permission wording), markers 0, meaning kept 25/25, kept
+ * ratio flat vs control (90.7% vs 90.4%, p=0.906). Appended AFTER
+ * the length line, truly last — exactly as the test runner did.
+ * Arabic is excluded: the v6.23 Arabic probe showed the directive
+ * barely moves Arabic (sentences 86.4% kept vs the vendor's ~40%),
+ * and the keep-punctuation rules must stay untouched.
+ */
+export function mergeLine(): string {
+  return 'Merge at least one pair of adjacent sentences into a single sentence, keeping every fact and every clause.'
+}
+
+/** Full system instruction: v6 prompt + one tone line + one level line (+ Arabic line) (+ length line + merge line for English). */
 export function buildSystemPrompt(tone: Tone, level: Level, arabic: boolean, wordCount?: number): string {
   const parts = [V6_PROMPT, TONE_LINES[tone], LEVEL_LINES[level]]
   if (arabic) parts.push(ARABIC_LINE)
-  else if (wordCount !== undefined) parts.push(lengthLine(wordCount))
+  else {
+    if (wordCount !== undefined) parts.push(lengthLine(wordCount))
+    parts.push(mergeLine())
+  }
   return parts.join('\n\n')
 }
