@@ -68,7 +68,8 @@ async function callGemini(apiKey: string, systemPrompt: string, input: string): 
  * Deterministic punctuation cleanup. The model sometimes overshoots the
  * "keep every comma" instruction and emits doubled marks (observed live:
  * "،،" twice in one Arabic output). Collapse any run of the same mark to
- * one — but preserve "..." (ellipsis).
+ * one — but preserve "..." (ellipsis). v6.4: also collapse mixed runs of
+ * periods/commas (".،" / "،.") to the LAST mark of the run.
  */
 export function normalizePunctuation(text: string): string {
   const ELLIPSIS = '__HUMANIZEAI_ELLIPSIS_9f3a7c__'
@@ -78,6 +79,8 @@ export function normalizePunctuation(text: string): string {
     .replace(/,(\s*,)+/g, ',')
     .replace(/؟(\s*؟)+/g, '؟')
     .replace(/!(\s*!)+/g, '!')
+    // v6.4: mixed period/comma runs -> last mark of the run.
+    .replace(/([.،,])(\s*[.،,])+/g, (run) => run.trim().slice(-1))
     .replace(/\.{2,}/g, '.')
     .replaceAll(ELLIPSIS, '...')
 }
