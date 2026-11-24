@@ -30,15 +30,20 @@ function extractText(data: unknown): string {
 }
 
 async function callGemini(apiKey: string, systemPrompt: string, input: string): Promise<string> {
-  const res = await fetch(`${ENDPOINT}?key=${encodeURIComponent(apiKey)}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: systemPrompt }] },
-      contents: [{ parts: [{ text: input }] }],
-      generationConfig: { temperature: 1.0 },
-    }),
-  })
+  let res: Response
+  try {
+    res = await fetch(`${ENDPOINT}?key=${encodeURIComponent(apiKey)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        contents: [{ parts: [{ text: input }] }],
+        generationConfig: { temperature: 1.0 },
+      }),
+    })
+  } catch {
+    throw new Error('تعذّر الاتصال بخدمة Gemini. تأكد من الإنترنت وحاول تاني.')
+  }
   if (!res.ok) {
     let message = `Gemini request failed (${res.status})`
     try {
@@ -50,7 +55,13 @@ async function callGemini(apiKey: string, systemPrompt: string, input: string): 
     }
     throw new Error(message)
   }
-  return extractText(await res.json())
+  let data: unknown
+  try {
+    data = await res.json()
+  } catch {
+    throw new Error('وصل رد غير مفهوم من Gemini. حاول تاني.')
+  }
+  return extractText(data)
 }
 
 export function countWords(text: string): number {
@@ -74,10 +85,18 @@ export async function humanizeText(
   const systemPrompt = buildSystemPrompt(tone, level, arabic)
   const first = await callGemini(apiKey, systemPrompt, input)
   const inWords = countWords(input)
+  let result: HumanizeResult
   if (countWords(first) * 100 >= inWords * 60) {
-    return { text: first, regenerated: false }
+    result = { text: first, regenerated: false }
+  } else {
+    const second = await callGemini(apiKey, systemPrompt, input)
+    const kept = countWords(second) >= countWords(first) ? second : first
+    result = { text: kept, regenerated: true }
   }
-  const second = await callGemini(apiKey, systemPrompt, input)
-  const kept = countWords(second) >= countWords(first) ? second : first
-  return { text: kept, regenerated: true }
+  // An empty final output must never silently wipe a previous result:
+  // surface it as an error so the old output stays on screen.
+  if (!result.text.trim()) {
+    throw new Error('Gemini رجّع رد فاضي. جرّب تاني.')
+  }
+  return result
 }
