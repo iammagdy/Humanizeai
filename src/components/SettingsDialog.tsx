@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Dialog } from '@base-ui/react/dialog'
-import { clearApiKey, getApiKey, GEMINI_KEY_URL, setApiKey } from '../lib/settings'
+import { clearApiKey, getApiKey, OPENAI_KEY_URL, setApiKey } from '../lib/settings'
 import type { Strings } from '../lib/i18n'
 
 interface SettingsDialogProps {
@@ -48,11 +48,11 @@ export function SettingsDialog({ open, onOpenChange, t, onKeyChange }: SettingsD
           </Dialog.Description>
 
           <div className="mt-5 flex flex-col gap-1.5">
-            <label htmlFor="gemini-key" className="text-sm font-medium">
+            <label htmlFor="openai-key" className="text-sm font-medium">
               {t.apiKeyLabel}
             </label>
             <input
-              id="gemini-key"
+              id="openai-key"
               type="password"
               autoComplete="off"
               value={draft}
@@ -67,7 +67,7 @@ export function SettingsDialog({ open, onOpenChange, t, onKeyChange }: SettingsD
           </div>
 
           <a
-            href={GEMINI_KEY_URL}
+            href={OPENAI_KEY_URL}
             target="_blank"
             rel="noreferrer"
             className="mt-3 inline-block text-sm font-medium text-primary underline underline-offset-4"

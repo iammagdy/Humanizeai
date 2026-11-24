@@ -1,10 +1,10 @@
 /**
- * API-key storage. The key is the user's own Gemini key, entered in
+ * API-key storage. The key is the user's own OpenAI key, entered in
  * Settings. It lives in localStorage ONLY — never committed, never sent
- * anywhere except to generativelanguage.googleapis.com.
+ * anywhere except to api.openai.com.
  */
 
-const KEY = 'humanizeai-gemini-key'
+const KEY = 'humanizeai-openai-key'
 
 export function getApiKey(): string {
   try {
@@ -31,4 +31,4 @@ export function clearApiKey(): void {
   }
 }
 
-export const GEMINI_KEY_URL = 'https://aistudio.google.com/apikey'
+export const OPENAI_KEY_URL = 'https://platform.openai.com/api-keys'

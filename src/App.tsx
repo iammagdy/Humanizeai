@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { DirectionProvider } from '@base-ui/react/direction-provider'
-import { countWords, humanizeText } from './lib/gemini'
+import { countWords, humanizeText } from './lib/openai'
 import { isArabic, LEVELS, TONES, type Level, type Tone } from './lib/engine'
 import {
   addSessionUsed,

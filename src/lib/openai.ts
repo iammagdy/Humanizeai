@@ -1,15 +1,20 @@
 import { buildSystemPrompt, type Level, type Tone } from './engine'
 
 /**
- * Gemini client — direct browser calls, no backend, no proxy.
- * Model: gemini-3.5-flash-lite, temperature 1.0, no topP
- * (the exact setting validated in the v5/v6 rounds).
+ * OpenAI client — direct browser calls, no backend, no proxy.
+ * Model: gpt-6-luna (chosen by Magdy 2026-11-24; round v6.13 proved it
+ * beats flash-lite on both test texts with zero unusable outputs).
+ * Temperature 1.0. NOTE: this model rejects `max_tokens` (400) — it
+ * takes `max_completion_tokens` instead (verified by live probe).
  * The API key is supplied by the user in Settings and is sent ONLY to
- * generativelanguage.googleapis.com — never anywhere else.
+ * api.openai.com — never anywhere else.
  */
 
-const MODEL = 'gemini-3.5-flash-lite'
-const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`
+const MODEL = 'gpt-6-luna'
+const ENDPOINT = 'https://api.openai.com/v1/chat/completions'
+const MAX_COMPLETION_TOKENS = 2048
+/** Retry delays after a 429/5xx or a network failure (3 retries max). */
+const RETRY_DELAYS_MS = [2000, 8000, 30000]
 
 export interface HumanizeResult {
   text: string
@@ -19,33 +24,64 @@ export interface HumanizeResult {
 
 function extractText(data: unknown): string {
   const d = data as {
-    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>
-    error?: { message?: string; status?: string }
+    choices?: Array<{ message?: { content?: string | null }; finish_reason?: string }>
+    error?: { message?: string; type?: string; code?: string }
   }
   if (d?.error) {
-    throw new Error(d.error.message ?? `Gemini API error (${d.error.status ?? 'unknown'})`)
+    throw new Error(d.error.message ?? 'OpenAI API error')
   }
-  const parts = d?.candidates?.[0]?.content?.parts ?? []
-  return parts.map((p) => p.text ?? '').join('')
+  const choice = d?.choices?.[0]
+  return choice?.message?.content ?? ''
 }
 
-async function callGemini(apiKey: string, systemPrompt: string, input: string): Promise<string> {
-  let res: Response
-  try {
-    res = await fetch(`${ENDPOINT}?key=${encodeURIComponent(apiKey)}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: systemPrompt }] },
-        contents: [{ parts: [{ text: input }] }],
-        generationConfig: { temperature: 1.0 },
-      }),
-    })
-  } catch {
-    throw new Error('تعذّر الاتصال بخدمة Gemini. تأكد من الإنترنت وحاول تاني.')
-  }
-  if (!res.ok) {
-    let message = `Gemini request failed (${res.status})`
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms))
+}
+
+async function callOpenAI(apiKey: string, systemPrompt: string, input: string): Promise<string> {
+  let lastError: Error | null = null
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+    let res: Response
+    try {
+      res = await fetch(ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: MODEL,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: input },
+          ],
+          temperature: 1.0,
+          max_completion_tokens: MAX_COMPLETION_TOKENS,
+        }),
+      })
+    } catch {
+      lastError = new Error('تعذّر الاتصال بخدمة OpenAI. تأكد من الإنترنت وحاول تاني.')
+      if (attempt < RETRY_DELAYS_MS.length) {
+        await sleep(RETRY_DELAYS_MS[attempt])
+        continue
+      }
+      throw lastError
+    }
+    if (res.ok) {
+      let data: unknown
+      try {
+        data = await res.json()
+      } catch {
+        throw new Error('وصل رد غير مفهوم من OpenAI. حاول تاني.')
+      }
+      return extractText(data)
+    }
+    // Retryable: rate limit or server error.
+    if ((res.status === 429 || res.status >= 500) && attempt < RETRY_DELAYS_MS.length) {
+      await sleep(RETRY_DELAYS_MS[attempt])
+      continue
+    }
+    let message = `OpenAI request failed (${res.status})`
     try {
       const data = await res.json()
       const err = (data as { error?: { message?: string } })?.error?.message
@@ -55,13 +91,7 @@ async function callGemini(apiKey: string, systemPrompt: string, input: string): 
     }
     throw new Error(message)
   }
-  let data: unknown
-  try {
-    data = await res.json()
-  } catch {
-    throw new Error('وصل رد غير مفهوم من Gemini. حاول تاني.')
-  }
-  return extractText(data)
+  throw lastError ?? new Error('OpenAI request failed')
 }
 
 /**
@@ -106,14 +136,14 @@ export async function humanizeText(
   arabic: boolean,
 ): Promise<HumanizeResult> {
   const systemPrompt = buildSystemPrompt(tone, level, arabic)
-  const first = await callGemini(apiKey, systemPrompt, input)
+  const first = await callOpenAI(apiKey, systemPrompt, input)
   const inWords = countWords(input)
   const threshold = arabic ? 80 : 60
   let result: HumanizeResult
   if (countWords(first) * 100 >= inWords * threshold) {
     result = { text: first, regenerated: false }
   } else {
-    const second = await callGemini(apiKey, systemPrompt, input)
+    const second = await callOpenAI(apiKey, systemPrompt, input)
     const kept = countWords(second) >= countWords(first) ? second : first
     result = { text: kept, regenerated: true }
   }
@@ -123,7 +153,7 @@ export async function humanizeText(
   // An empty final output must never silently wipe a previous result:
   // surface it as an error so the old output stays on screen.
   if (!result.text.trim()) {
-    throw new Error('Gemini رجّع رد فاضي. جرّب تاني.')
+    throw new Error('OpenAI رجّع رد فاضي. جرّب تاني.')
   }
   return result
 }
