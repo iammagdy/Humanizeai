@@ -102,7 +102,13 @@ async function callOpenAI(
     } catch {
       /* keep the status-based message */
     }
-    throw new Error(message)
+    // Attach the HTTP status (never the message — the provider's message
+    // can contain key material). The Netlify proxy logs the status only,
+    // so a 401 (key rejected) can be told apart from a 404 (no access
+    // to the model) or a network failure (no status at all).
+    const error = new Error(message) as Error & { status?: number }
+    error.status = res.status
+    throw error
   }
   throw lastError ?? new Error('OpenAI request failed')
 }

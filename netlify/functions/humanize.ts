@@ -129,8 +129,9 @@ export default async (req: Request, context: { ip?: string }): Promise<Response>
     typeof level === 'string' && (LEVELS as string[]).includes(level) ? (level as Level) : 'balanced'
 
   // Key check first: without it the service is simply not configured.
-  // No key details, no stack trace, ever.
-  const apiKey = process.env.OPENAI_API_KEY
+  // No key details, no stack trace, ever. Trim: a pasted value can
+  // carry trailing whitespace, which OpenAI rejects with a 401.
+  const apiKey = process.env.OPENAI_API_KEY?.trim()
   if (!apiKey) {
     return json(503, err('PROXY_UNAVAILABLE', 'Shared humanize service is not configured.'))
   }
@@ -157,9 +158,17 @@ export default async (req: Request, context: { ip?: string }): Promise<Response>
   let result: HumanizeResult
   try {
     result = await humanizeText(apiKey, input, cleanTone, cleanLevel, isArabic(input))
-  } catch {
+  } catch (e) {
     // Never forward the provider's error body — it can leak details.
-    console.error('humanize proxy: OpenAI call failed')
+    // Log only the HTTP status: 401 = key rejected, 404 = no access to
+    // the model, none = the request never got an answer (network). The
+    // status is attached by callOpenAI; the message itself is never
+    // logged because it can contain key material.
+    const status = (e as { status?: unknown } | null)?.status
+    console.error(
+      'humanize proxy: OpenAI call failed',
+      typeof status === 'number' ? `status=${status}` : 'status=none',
+    )
     return json(502, err('PROXY_UNAVAILABLE', 'Shared humanize service is unavailable right now.'))
   }
   try {
