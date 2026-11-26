@@ -1,4 +1,4 @@
-import { buildSystemPrompt, type Level, type Tone } from './engine'
+import { buildSystemPrompt, type Level, type Tone } from './engine.ts'
 
 /**
  * OpenAI client — direct browser calls, no backend, no proxy.
@@ -20,6 +20,12 @@ export interface HumanizeResult {
   text: string
   /** True when the fidelity guard regenerated once and kept the longer output. */
   regenerated: boolean
+  /**
+   * Actual OpenAI tokens spent on this request (both calls when the
+   * guard regenerated). The proxy uses it for the global daily budget.
+   * 0 when unknown (proxy path — the server already accounted for it).
+   */
+  usageTokens: number
 }
 
 function extractText(data: unknown): string {
@@ -35,10 +41,16 @@ function extractText(data: unknown): string {
 }
 
 function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => window.setTimeout(resolve, ms))
+  // globalThis (not window) so this module also runs in Node — the
+  // Netlify proxy function imports it.
+  return new Promise((resolve) => globalThis.setTimeout(resolve, ms))
 }
 
-async function callOpenAI(apiKey: string, systemPrompt: string, input: string): Promise<string> {
+async function callOpenAI(
+  apiKey: string,
+  systemPrompt: string,
+  input: string,
+): Promise<{ text: string; usageTokens: number }> {
   let lastError: Error | null = null
   for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
     let res: Response
@@ -74,7 +86,8 @@ async function callOpenAI(apiKey: string, systemPrompt: string, input: string): 
       } catch {
         throw new Error('وصل رد غير مفهوم من OpenAI. حاول تاني.')
       }
-      return extractText(data)
+      const usage = (data as { usage?: { total_tokens?: number } })?.usage?.total_tokens
+      return { text: extractText(data), usageTokens: typeof usage === 'number' ? usage : 0 }
     }
     // Retryable: rate limit or server error.
     if ((res.status === 429 || res.status >= 500) && attempt < RETRY_DELAYS_MS.length) {
@@ -140,20 +153,83 @@ export async function humanizeText(
   const first = await callOpenAI(apiKey, systemPrompt, input)
   const threshold = arabic ? 80 : 60
   let result: HumanizeResult
-  if (countWords(first) * 100 >= inWords * threshold) {
-    result = { text: first, regenerated: false }
+  if (countWords(first.text) * 100 >= inWords * threshold) {
+    result = { text: first.text, regenerated: false, usageTokens: first.usageTokens }
   } else {
     const second = await callOpenAI(apiKey, systemPrompt, input)
-    const kept = countWords(second) >= countWords(first) ? second : first
-    result = { text: kept, regenerated: true }
+    const kept = countWords(second.text) >= countWords(first.text) ? second.text : first.text
+    result = { text: kept, regenerated: true, usageTokens: first.usageTokens + second.usageTokens }
   }
   // Deterministic cleanup of doubled punctuation (e.g. "،،" from the
   // exact-count instruction) before the empty check.
-  result = { text: normalizePunctuation(result.text), regenerated: result.regenerated }
+  result = {
+    text: normalizePunctuation(result.text),
+    regenerated: result.regenerated,
+    usageTokens: result.usageTokens,
+  }
   // An empty final output must never silently wipe a previous result:
   // surface it as an error so the old output stays on screen.
   if (!result.text.trim()) {
     throw new Error('OpenAI رجّع رد فاضي. جرّب تاني.')
   }
   return result
+}
+
+// ---------------------------------------------------------------------------
+// Shared-service proxy (Netlify Function). Used only when the user has NO
+// key saved in Settings — visitors can humanize without entering a key.
+// With a key saved, the direct path above is used unchanged.
+// ---------------------------------------------------------------------------
+
+const PROXY_ENDPOINT = '/.netlify/functions/humanize'
+
+export type ProxyErrorCode = 'PROXY_LIMIT' | 'PROXY_UNAVAILABLE'
+
+/** Error carrying a machine-readable proxy code (App maps it to UI text). */
+export function proxyError(code: ProxyErrorCode): Error {
+  const err = new Error(code)
+  ;(err as Error & { code?: ProxyErrorCode }).code = code
+  return err
+}
+
+export function getProxyErrorCode(e: unknown): ProxyErrorCode | undefined {
+  const code = (e as { code?: unknown } | null)?.code
+  return code === 'PROXY_LIMIT' || code === 'PROXY_UNAVAILABLE' ? code : undefined
+}
+
+/**
+ * Humanize through the shared proxy. The server applies the same prompt
+ * and fidelity guard, so the result shape matches the direct path.
+ */
+export async function humanizeViaProxy(
+  input: string,
+  tone: Tone,
+  level: Level,
+  arabic: boolean,
+): Promise<HumanizeResult> {
+  let res: Response
+  try {
+    res = await fetch(PROXY_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: input, tone, level, arabic }),
+    })
+  } catch {
+    throw proxyError('PROXY_UNAVAILABLE')
+  }
+  let data: unknown
+  try {
+    data = await res.json()
+  } catch {
+    throw proxyError('PROXY_UNAVAILABLE')
+  }
+  if (!res.ok) {
+    const code = (data as { error?: { code?: string } })?.error?.code
+    throw proxyError(code === 'DAILY_LIMIT' ? 'PROXY_LIMIT' : 'PROXY_UNAVAILABLE')
+  }
+  const d = data as { text?: unknown; regenerated?: unknown }
+  if (typeof d.text !== 'string' || !d.text.trim()) {
+    throw proxyError('PROXY_UNAVAILABLE')
+  }
+  return { text: d.text, regenerated: d.regenerated === true, usageTokens: 0 }
 }

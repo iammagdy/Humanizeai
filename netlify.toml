@@ -1,0 +1,14 @@
+# Netlify site config for HumanizeAi.
+# Build: Vite static site (dist/). Functions: the shared-service proxy.
+# NOTE: drag-and-drop manual deploys do NOT support Functions — deploy
+# via a linked repo or `netlify deploy --functions=netlify/functions`.
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[functions]
+  directory = "netlify/functions"
+  # Sync functions default to a 10s timeout; the OpenAI call (plus a
+  # possible guard regen) needs headroom. 26s is the Netlify maximum.
+  timeout = 26

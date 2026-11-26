@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { DirectionProvider } from '@base-ui/react/direction-provider'
-import { countWords, humanizeText } from './lib/openai'
+import { countWords, getProxyErrorCode, humanizeText, humanizeViaProxy } from './lib/openai'
 import { isArabic, LEVELS, TONES, type Level, type Tone } from './lib/engine'
 import {
   addSessionUsed,
@@ -69,18 +69,21 @@ export default function App() {
       return
     }
     const key = getApiKey()
-    if (!key) {
-      setSettingsOpen(true)
-      return
-    }
     setBusy(true)
     try {
-      const result = await humanizeText(key, input.trim(), tone, level, isArabic(input))
+      // With a key saved, call OpenAI directly (unchanged). Without one,
+      // use the shared proxy — the visitor never has to enter a key.
+      const result = key
+        ? await humanizeText(key, input.trim(), tone, level, isArabic(input))
+        : await humanizeViaProxy(input.trim(), tone, level, isArabic(input))
       setOutput(result.text)
       setRegenerated(result.regenerated)
       setSessionUsed(addSessionUsed(inputWords))
     } catch (e) {
-      setError(t.errorPrefix + (e instanceof Error ? e.message : String(e)))
+      const code = getProxyErrorCode(e)
+      if (code === 'PROXY_LIMIT') setError(t.limitProxy)
+      else if (code === 'PROXY_UNAVAILABLE') setError(t.errorProxy)
+      else setError(t.errorPrefix + (e instanceof Error ? e.message : String(e)))
     } finally {
       setBusy(false)
     }

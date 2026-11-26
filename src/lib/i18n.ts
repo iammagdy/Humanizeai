@@ -31,9 +31,9 @@ export const STRINGS = {
     wordsPerRequest: 'من 300 كلمة للطلب',
     sessionUsed: 'المستخدم في الجلسة',
     sessionRemaining: 'المتبقي',
-    noKeyTitle: 'محتاج مفتاح OpenAI عشان التحويل يشتغل',
+    noKeyTitle: 'بتحوّل من الخدمة المشتركة — والمفتاح اختياري',
     noKeyBody:
-      'التطبيق بيستخدم مفتاح OpenAI بتاعك — والمفتاح بيتحفظ على جهازك بس، ومش بيتبعت لأي حد غير OpenAI.',
+      'من غير مفتاح، التحويل بيتم عن طريق الخدمة المشتركة (ليها حد يومي). لو دخلت مفتاح OpenAI بتاعك، التحويل بيتم مباشرة من جهازك.',
     openSettings: 'فتح الإعدادات',
     settingsTitle: 'الإعدادات',
     settingsBody:
@@ -46,6 +46,10 @@ export const STRINGS = {
     saved: 'تم الحفظ',
     limitRequest: 'النص أطول من 300 كلمة. قصّره وحاول تاني.',
     limitSession: 'خلصت رصيد الجلسة (1,500 كلمة). افتح تبويب جديد عشان تبدأ جلسة جديدة.',
+    limitProxy:
+      'خلصت حصة الخدمة المشتركة لليوم. جرّب بكرا، أو دخل مفتاح OpenAI بتاعك في الإعدادات.',
+    errorProxy:
+      'الخدمة المشتركة مش متاحة دلوقتي. جرّب تاني بعد شوية، أو دخل مفتاح OpenAI بتاعك في الإعدادات.',
     emptyInput: 'اكتب أو الصق نص الأول.',
     regeneratedNote: 'الناتج الأول كان مختصر بزيادة، فأعدنا التحويل مرة واحدة وحفظنا النسخة الأطول.',
     errorPrefix: 'حصلت مشكلة: ',
@@ -83,9 +87,9 @@ export const STRINGS = {
     wordsPerRequest: 'of 300 words per request',
     sessionUsed: 'Used this session',
     sessionRemaining: 'remaining',
-    noKeyTitle: 'An OpenAI key is needed to humanize',
+    noKeyTitle: 'Using the shared service — a key is optional',
     noKeyBody:
-      'The app uses your own OpenAI key, and the key is stored on your device only, never sent to anyone but OpenAI.',
+      'Without a key, humanizing goes through the shared service (daily budget applies). Add your own OpenAI key to humanize directly from your device.',
     openSettings: 'Open Settings',
     settingsTitle: 'Settings',
     settingsBody:
@@ -98,6 +102,10 @@ export const STRINGS = {
     saved: 'Saved',
     limitRequest: 'The text is longer than 300 words. Shorten it and try again.',
     limitSession: 'Session budget used up (1,500 words). Open a new tab to start a fresh session.',
+    limitProxy:
+      'The shared service ran out of its daily budget. Try again tomorrow, or add your own OpenAI key in Settings.',
+    errorProxy:
+      'The shared service is unavailable right now. Try again shortly, or add your own OpenAI key in Settings.',
     emptyInput: 'Write or paste some text first.',
     regeneratedNote: 'The first result was too short, so we re-ran the rewrite once and kept the longer version.',
     errorPrefix: 'Something went wrong: ',
