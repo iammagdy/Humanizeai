@@ -9,6 +9,10 @@
 
 [functions]
   directory = "netlify/functions"
-  # Sync functions default to a 10s timeout; the OpenAI call (plus a
-  # possible guard regen) needs headroom. 26s is the Netlify maximum.
+
+# Sync functions default to a 10s timeout; the OpenAI call (plus a
+# possible guard regen) needs headroom. 26s is the Netlify maximum.
+# NOTE: timeout must live under [functions.<name>] — a bare
+# `timeout` under [functions] is rejected ("must be an object").
+[functions.humanize]
   timeout = 26
